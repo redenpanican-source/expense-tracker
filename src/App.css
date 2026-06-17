@@ -382,6 +382,12 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   .monthly-amount {
     font-size: 36px;
   }
+
+  /* 16px prevents iOS Safari from auto-zooming when an input is focused */
+  .form-input,
+  .currency-select {
+    font-size: 16px;
+  }
 }
 
 @media (max-width: 480px) {
