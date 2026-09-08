@@ -1,5 +1,7 @@
-// Simple offline-capable service worker for Expense Tracker
-const CACHE = 'expense-tracker-v1';
+// Service worker for Expense Tracker.
+// Network-first for everything: always shows the latest version when online,
+// and falls back to the cache only when offline. (v2)
+const CACHE = 'expense-tracker-v2';
 const BASE = self.registration.scope; // e.g. https://host/expense-tracker/
 
 self.addEventListener('install', () => {
@@ -21,31 +23,19 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
 
-  // App navigations: network-first, fall back to cached shell when offline.
-  if (req.mode === 'navigate') {
-    event.respondWith((async () => {
-      const cache = await caches.open(CACHE);
-      try {
-        const fresh = await fetch(req);
-        cache.put(req, fresh.clone());
-        return fresh;
-      } catch (_) {
-        return (await cache.match(req)) || (await cache.match(BASE)) || Response.error();
-      }
-    })());
-    return;
-  }
-
-  // Static assets: stale-while-revalidate.
   event.respondWith((async () => {
     const cache = await caches.open(CACHE);
-    const cached = await cache.match(req);
-    const network = fetch(req)
-      .then((res) => {
-        if (res && res.status === 200) cache.put(req, res.clone());
-        return res;
-      })
-      .catch(() => cached);
-    return cached || network;
+    try {
+      // Bypass the HTTP cache so we truly get the freshest file.
+      const fresh = await fetch(req, { cache: 'no-store' });
+      if (fresh && fresh.status === 200) cache.put(req, fresh.clone());
+      return fresh;
+    } catch (_) {
+      // Offline: serve whatever we cached; fall back to the app shell for navigations.
+      const cached = await cache.match(req);
+      if (cached) return cached;
+      if (req.mode === 'navigate') return (await cache.match(BASE)) || Response.error();
+      return Response.error();
+    }
   })());
 });
