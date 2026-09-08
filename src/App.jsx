@@ -88,7 +88,7 @@ export default function App() {
   const [editing, setEditing] = useState(null) // { id, type }
   const [search, setSearch] = useState('')
   const [filterCat, setFilterCat] = useState('All')
-  const [exportSel, setExportSel] = useState(() => thisYearMonth()) // YYYY-MM or 'all'
+  const [exportMonths, setExportMonths] = useState(() => new Set([thisYearMonth()])) // set of YYYY-MM
 
   const currency = CURRENCIES.find(c => c.code === currencyCode) ?? CURRENCIES[0]
 
@@ -218,12 +218,28 @@ export default function App() {
   }
   const sumOf = list => list.reduce((s, e) => s + e.amount, 0)
 
+  // selected export months, newest first
+  const selectedMonths = monthsWithData.filter(ym => exportMonths.has(ym))
+  const allSelected = monthsWithData.length > 0 && selectedMonths.length === monthsWithData.length
+
+  function toggleMonth(ym) {
+    setExportMonths(prev => {
+      const next = new Set(prev)
+      if (next.has(ym)) next.delete(ym); else next.add(ym)
+      return next
+    })
+  }
+  function toggleAllMonths() {
+    setExportMonths(allSelected ? new Set() : new Set(monthsWithData))
+  }
+
   function exportCSV() {
-    const all = exportSel === 'all'
-    const cols = all
+    const months = selectedMonths
+    if (months.length === 0) { alert('Pick at least one month to export.'); return }
+    const multi = months.length > 1
+    const cols = multi
       ? ['Month', 'Type', 'Date', 'Description', 'Category', `Amount (${currency.code})`]
       : ['Type', 'Date', 'Description', 'Category', `Amount (${currency.code})`]
-    const months = all ? monthsWithData : [exportSel]
     const rows = []
     for (const ym of months) {
       const items = [
@@ -232,14 +248,16 @@ export default function App() {
       ].sort((a, b) => b.date.localeCompare(a.date))
       for (const e of items) {
         const base = [e.type, e.date, e.desc, e.cat, e.amt.toFixed(2)]
-        rows.push(all ? [labelFor(ym), ...base] : base)
+        rows.push(multi ? [labelFor(ym), ...base] : base)
       }
     }
     const csv = [cols, ...rows].map(r => r.map(v => `"${v}"`).join(',')).join('\n')
-    downloadBlob(new Blob([csv], { type: 'text/csv' }), all ? 'transactions-all-months.csv' : `transactions-${exportSel}.csv`)
+    downloadBlob(new Blob([csv], { type: 'text/csv' }), multi ? 'transactions-selected-months.csv' : `transactions-${months[0]}.csv`)
   }
 
   async function exportExcel() {
+    const months = selectedMonths
+    if (months.length === 0) { alert('Pick at least one month to export.'); return }
     const XLSX = await import('xlsx')
     const amtHdr = `Amount (${currency.code})`
     const monthSheet = (ym) => {
@@ -267,10 +285,8 @@ export default function App() {
       return ws
     }
     const wb = XLSX.utils.book_new()
-    const months = exportSel === 'all' ? monthsWithData : [exportSel]
     for (const ym of months) XLSX.utils.book_append_sheet(wb, monthSheet(ym), labelFor(ym).slice(0, 31))
-    if (wb.SheetNames.length === 0) return
-    XLSX.writeFile(wb, exportSel === 'all' ? 'finances-all-months.xlsx' : `finances-${exportSel}.xlsx`)
+    XLSX.writeFile(wb, months.length > 1 ? 'finances-selected-months.xlsx' : `finances-${months[0]}.xlsx`)
   }
 
   function downloadBlob(blob, filename) {
@@ -490,17 +506,35 @@ export default function App() {
         </section>
 
         {/* Export */}
-        <div className="export-row">
-          <label className="export-label">
-            Export
-            <select className="form-input form-select export-select" value={exportSel} onChange={e => setExportSel(e.target.value)}>
-              <option value="all">All months (separate sheets)</option>
-              {monthsWithData.map(ym => <option key={ym} value={ym}>{labelFor(ym)}</option>)}
-            </select>
-          </label>
-          <button className="btn-export" onClick={exportCSV}>Export CSV</button>
-          <button className="btn-export primary" onClick={exportExcel}>Export Excel</button>
-        </div>
+        <section className="card export-card">
+          <div className="export-head">
+            <h2 className="section-title">Export {selectedMonths.length > 0 && <span className="export-count">· {selectedMonths.length} selected</span>}</h2>
+            {monthsWithData.length > 0 && (
+              <button type="button" className="link-btn" onClick={toggleAllMonths}>
+                {allSelected ? 'Clear all' : 'Select all'}
+              </button>
+            )}
+          </div>
+          {monthsWithData.length === 0
+            ? <p className="empty">No data to export yet.</p>
+            : (
+              <>
+                <div className="month-checks">
+                  {monthsWithData.map(ym => (
+                    <label key={ym} className={`month-chip${exportMonths.has(ym) ? ' on' : ''}`}>
+                      <input type="checkbox" checked={exportMonths.has(ym)} onChange={() => toggleMonth(ym)} />
+                      {labelFor(ym)}
+                    </label>
+                  ))}
+                </div>
+                <div className="export-actions">
+                  <button className="btn-export" onClick={exportCSV}>Export CSV</button>
+                  <button className="btn-export primary" onClick={exportExcel}>Export Excel</button>
+                </div>
+              </>
+            )
+          }
+        </section>
       </main>
     </div>
   )

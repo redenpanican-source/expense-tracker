@@ -368,9 +368,29 @@ input[type='date']::-webkit-calendar-picker-indicator { cursor: pointer; opacity
 .trend-col.active .trend-label { color: var(--accent); font-weight: 700; }
 
 /* ===== Export ===== */
-.export-row { display: flex; justify-content: flex-end; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
-.export-label { display: flex; flex-direction: column; gap: 5px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--muted); margin-right: auto; }
-.export-select { width: auto; padding: 9px 11px; font-size: 13px; }
+.export-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.export-head .section-title { margin: 0; }
+.export-count { color: var(--accent); text-transform: none; letter-spacing: 0; font-weight: 700; }
+.link-btn { background: none; border: none; color: var(--accent); font-size: 12px; font-weight: 700; cursor: pointer; font-family: inherit; padding: 0; }
+.link-btn:hover { text-decoration: underline; }
+
+.month-checks { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.month-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 13px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  font-size: 13px;
+  cursor: pointer;
+  user-select: none;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+.month-chip input { accent-color: var(--accent); cursor: pointer; margin: 0; }
+.month-chip.on { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+
+.export-actions { display: flex; justify-content: flex-end; gap: 10px; }
 .btn-export {
   background: transparent;
   border: 1px solid var(--border);
