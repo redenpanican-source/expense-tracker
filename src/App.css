@@ -23,8 +23,8 @@ body { margin: 0; }
   --accent: #2563eb;
   --accent-soft: rgba(37, 99, 235, 0.12);
   --accent-contrast: #ffffff;
-  --grad-a: #2563eb;
-  --grad-b: #06b6d4;
+  --grad-a: #1d4ed8;
+  --grad-b: #3b82f6;
   --bar: #cbd5e1;
   --danger: #dc2626;
   --pos: #059669;
@@ -43,8 +43,8 @@ body { margin: 0; }
   --accent: #3b82f6;
   --accent-soft: rgba(59, 130, 246, 0.16);
   --accent-contrast: #ffffff;
-  --grad-a: #3b82f6;
-  --grad-b: #06b6d4;
+  --grad-a: #1d4ed8;
+  --grad-b: #3b82f6;
   --bar: #3a414d;
   --danger: #f87171;
   --pos: #34d399;
