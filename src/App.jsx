@@ -79,7 +79,7 @@ export default function App() {
   const [theme, setTheme] = useState(() => {
     const saved = localStorage.getItem(LS_THEME)
     if (saved === 'light' || saved === 'dark') return saved
-    return window.matchMedia?.('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
+    return 'light'
   })
 
   const [month, setMonth] = useState(thisYearMonth)
