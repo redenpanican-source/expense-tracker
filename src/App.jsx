@@ -144,6 +144,10 @@ export default function App() {
   }
 
   function deleteItem(id, type) {
+    const list = type === 'income' ? income : expenses
+    const item = list.find(x => x.id === id)
+    const label = item ? `"${item.description}" (${fmt(currency.symbol, item.amount)})` : 'this entry'
+    if (!window.confirm(`Delete ${label}?`)) return
     if (type === 'income') setIncome(prev => prev.filter(x => x.id !== id))
     else setExpenses(prev => prev.filter(x => x.id !== id))
     if (editing?.id === id) cancelEdit()
@@ -194,55 +198,79 @@ export default function App() {
     return [...set].sort((a, b) => b.localeCompare(a))
   }, [expenses, income])
 
-  // ---- Exports ----
-  function rowsForMonth(ym) {
+  // last 6 months of spending ending at the selected month
+  const trend = useMemo(() => {
+    const arr = []
+    for (let i = 5; i >= 0; i--) {
+      const ym = shiftMonth(month, -i)
+      arr.push({ ym, total: expenses.filter(e => e.date.startsWith(ym)).reduce((s, e) => s + e.amount, 0) })
+    }
+    return arr
+  }, [expenses, month])
+  const trendMax = Math.max(1, ...trend.map(t => t.total))
+
+  // ---- Exports (expenses + income + balance) ----
+  function expensesForMonth(ym) {
     return expenses.filter(e => e.date.startsWith(ym)).sort((a, b) => b.date.localeCompare(a.date))
   }
+  function incomeForMonth(ym) {
+    return income.filter(e => e.date.startsWith(ym)).sort((a, b) => b.date.localeCompare(a.date))
+  }
+  const sumOf = list => list.reduce((s, e) => s + e.amount, 0)
 
   function exportCSV() {
-    let header, rows, name
-    if (exportSel === 'all') {
-      header = ['Month', 'Date', 'Description', 'Category', `Amount (${currency.code})`]
-      rows = [...expenses]
-        .sort((a, b) => b.date.localeCompare(a.date))
-        .map(e => [labelFor(e.date.slice(0, 7)), e.date, e.description, e.category, e.amount.toFixed(2)])
-      name = 'expenses-all-months.csv'
-    } else {
-      header = ['Date', 'Description', 'Category', `Amount (${currency.code})`]
-      rows = rowsForMonth(exportSel).map(e => [e.date, e.description, e.category, e.amount.toFixed(2)])
-      name = `expenses-${exportSel}.csv`
+    const all = exportSel === 'all'
+    const cols = all
+      ? ['Month', 'Type', 'Date', 'Description', 'Category', `Amount (${currency.code})`]
+      : ['Type', 'Date', 'Description', 'Category', `Amount (${currency.code})`]
+    const months = all ? monthsWithData : [exportSel]
+    const rows = []
+    for (const ym of months) {
+      const items = [
+        ...expensesForMonth(ym).map(e => ({ type: 'Expense', date: e.date, desc: e.description, cat: e.category, amt: e.amount })),
+        ...incomeForMonth(ym).map(e => ({ type: 'Income', date: e.date, desc: e.description, cat: '', amt: e.amount })),
+      ].sort((a, b) => b.date.localeCompare(a.date))
+      for (const e of items) {
+        const base = [e.type, e.date, e.desc, e.cat, e.amt.toFixed(2)]
+        rows.push(all ? [labelFor(ym), ...base] : base)
+      }
     }
-    const csv = [header, ...rows].map(r => r.map(v => `"${v}"`).join(',')).join('\n')
-    downloadBlob(new Blob([csv], { type: 'text/csv' }), name)
+    const csv = [cols, ...rows].map(r => r.map(v => `"${v}"`).join(',')).join('\n')
+    downloadBlob(new Blob([csv], { type: 'text/csv' }), all ? 'transactions-all-months.csv' : `transactions-${exportSel}.csv`)
   }
 
   async function exportExcel() {
     const XLSX = await import('xlsx')
-    const wb = XLSX.utils.book_new()
-    const amtKey = `Amount (${currency.code})`
-    const makeSheet = (list, total) => {
-      const data = list.map(e => ({ Date: e.date, Description: e.description, Category: e.category, [amtKey]: e.amount }))
-      data.push({ Date: '', Description: '', Category: 'TOTAL', [amtKey]: total })
-      const ws = XLSX.utils.json_to_sheet(data)
+    const amtHdr = `Amount (${currency.code})`
+    const monthSheet = (ym) => {
+      const exp = expensesForMonth(ym)
+      const inc = incomeForMonth(ym)
+      const spentYm = sumOf(exp), earnedYm = sumOf(inc)
+      const rows = [
+        ['Summary'],
+        ['Income', earnedYm],
+        ['Expenses', spentYm],
+        ['Balance', earnedYm - spentYm],
+        [],
+        ['Expenses'],
+        ['Date', 'Description', 'Category', amtHdr],
+        ...exp.map(e => [e.date, e.description, e.category, e.amount]),
+        ['', '', 'TOTAL', spentYm],
+        [],
+        ['Income'],
+        ['Date', 'Source', amtHdr],
+        ...inc.map(e => [e.date, e.description, e.amount]),
+        ['', 'TOTAL', earnedYm],
+      ]
+      const ws = XLSX.utils.aoa_to_sheet(rows)
       ws['!cols'] = [{ wch: 12 }, { wch: 28 }, { wch: 14 }, { wch: 16 }]
       return ws
     }
-    if (exportSel === 'all') {
-      // one separate sheet per month, newest first
-      for (const ym of monthsWithData) {
-        const list = rowsForMonth(ym)
-        if (list.length === 0) continue
-        const total = list.reduce((s, e) => s + e.amount, 0)
-        XLSX.utils.book_append_sheet(wb, makeSheet(list, total), labelFor(ym).slice(0, 31))
-      }
-      if (wb.SheetNames.length === 0) return
-      XLSX.writeFile(wb, 'expenses-all-months.xlsx')
-    } else {
-      const list = rowsForMonth(exportSel)
-      const total = list.reduce((s, e) => s + e.amount, 0)
-      XLSX.utils.book_append_sheet(wb, makeSheet(list, total), labelFor(exportSel).slice(0, 31))
-      XLSX.writeFile(wb, `expenses-${exportSel}.xlsx`)
-    }
+    const wb = XLSX.utils.book_new()
+    const months = exportSel === 'all' ? monthsWithData : [exportSel]
+    for (const ym of months) XLSX.utils.book_append_sheet(wb, monthSheet(ym), labelFor(ym).slice(0, 31))
+    if (wb.SheetNames.length === 0) return
+    XLSX.writeFile(wb, exportSel === 'all' ? 'finances-all-months.xlsx' : `finances-${exportSel}.xlsx`)
   }
 
   function downloadBlob(blob, filename) {
@@ -416,6 +444,26 @@ export default function App() {
             }
           </section>
         </div>
+
+        {/* Last 6 months spending */}
+        <section className="card">
+          <h2 className="section-title">Last 6 Months</h2>
+          <div className="trend">
+            {trend.map(({ ym, total }) => (
+              <button
+                key={ym}
+                type="button"
+                className={`trend-col${ym === month ? ' active' : ''}`}
+                onClick={() => setMonth(ym)}
+                title={`${labelFor(ym)} · ${fmt(currency.symbol, total)}`}
+              >
+                <span className="trend-amt">{ym === month && total > 0 ? fmt(currency.symbol, total) : ''}</span>
+                <span className="trend-bar"><span className="trend-fill" style={{ height: `${(total / trendMax) * 100}%` }} /></span>
+                <span className="trend-label">{new Date(`${ym}-15`).toLocaleDateString('en', { month: 'short' })}</span>
+              </button>
+            ))}
+          </div>
+        </section>
 
         {/* Income list */}
         <section className="card">

@@ -25,6 +25,7 @@ body { margin: 0; }
   --accent-contrast: #ffffff;
   --grad-a: #2563eb;
   --grad-b: #06b6d4;
+  --bar: #cbd5e1;
   --danger: #dc2626;
   --pos: #059669;
   --pos-soft: rgba(5, 150, 105, 0.12);
@@ -44,6 +45,7 @@ body { margin: 0; }
   --accent-contrast: #ffffff;
   --grad-a: #3b82f6;
   --grad-b: #06b6d4;
+  --bar: #3a414d;
   --danger: #f87171;
   --pos: #34d399;
   --pos-soft: rgba(52, 211, 153, 0.14);
@@ -341,6 +343,29 @@ input[type='date']::-webkit-calendar-picker-indicator { cursor: pointer; opacity
 .legend-cat { color: var(--text); }
 .legend-amt { font-weight: 600; font-variant-numeric: tabular-nums; }
 .legend-pct { color: var(--muted); font-size: 12px; width: 34px; text-align: right; font-variant-numeric: tabular-nums; }
+
+/* ===== Trend (last 6 months) ===== */
+.trend { display: flex; align-items: flex-end; gap: 10px; height: 156px; padding-top: 6px; }
+.trend-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  height: 100%;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+}
+.trend-amt { font-size: 11px; color: var(--accent); font-weight: 700; height: 14px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.trend-bar { flex: 1; width: 100%; max-width: 48px; display: flex; align-items: flex-end; background: var(--track); border-radius: 7px 7px 0 0; overflow: hidden; }
+.trend-fill { width: 100%; background: var(--bar); border-radius: 7px 7px 0 0; min-height: 3px; transition: height 0.35s ease, filter 0.15s; }
+.trend-col.active .trend-fill { background: linear-gradient(180deg, var(--grad-b), var(--grad-a)); }
+.trend-col:hover .trend-fill { filter: brightness(1.08); }
+.trend-label { font-size: 11px; color: var(--muted); }
+.trend-col.active .trend-label { color: var(--accent); font-weight: 700; }
 
 /* ===== Export ===== */
 .export-row { display: flex; justify-content: flex-end; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
