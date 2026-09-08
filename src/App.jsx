@@ -21,14 +21,14 @@ const CATEGORIES = [
 ]
 
 const CATEGORY_COLORS = {
-  Food: '#ef6f53',
-  Transport: '#4c8bf5',
-  Housing: '#a06bd4',
-  Entertainment: '#f2b134',
-  Healthcare: '#2fb7a0',
-  Shopping: '#ec5a96',
-  Utilities: '#7c8aa5',
-  Other: '#9aa1ac',
+  Food: '#f97316',          // orange
+  Transport: '#3b82f6',     // blue
+  Housing: '#8b5cf6',       // violet
+  Entertainment: '#ec4899', // pink
+  Healthcare: '#14b8a6',    // teal
+  Shopping: '#f59e0b',      // amber
+  Utilities: '#64748b',     // slate
+  Other: '#94a3b8',         // light slate
 }
 
 const LS_EXPENSES = 'expense-logger-expenses'
