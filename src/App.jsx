@@ -1,6 +1,9 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import heroImg from './assets/hero.png'
 import './App.css'
+import { auth, db, googleProvider, firebaseEnabled } from './firebase'
+import { onAuthStateChanged, signInWithPopup, signInWithRedirect, getRedirectResult, signOut } from 'firebase/auth'
+import { doc, onSnapshot, setDoc } from 'firebase/firestore'
 
 const CURRENCIES = [
   { code: 'PHP', name: 'Philippine Peso',   symbol: '₱'  },
@@ -90,6 +93,10 @@ export default function App() {
   const [filterCat, setFilterCat] = useState('All')
   const [exportMonths, setExportMonths] = useState(() => new Set([thisYearMonth()])) // set of YYYY-MM
 
+  const [user, setUser] = useState(null)
+  const lastSynced = useRef(null)
+  const syncReady = useRef(false)
+
   const currency = CURRENCIES.find(c => c.code === currencyCode) ?? CURRENCIES[0]
 
   useEffect(() => { localStorage.setItem(LS_EXPENSES, JSON.stringify(expenses)) }, [expenses])
@@ -97,6 +104,61 @@ export default function App() {
   useEffect(() => { localStorage.setItem(LS_CURRENCY, currencyCode) }, [currencyCode])
   useEffect(() => { localStorage.setItem(LS_THEME, theme) }, [theme])
   useEffect(() => { localStorage.setItem(LS_BUDGETS, JSON.stringify(budgets)) }, [budgets])
+
+  // ---- Cloud sync (Firebase) ----
+  useEffect(() => {
+    if (!firebaseEnabled) return
+    getRedirectResult(auth).catch(() => {})
+    return onAuthStateChanged(auth, u => setUser(u))
+  }, [])
+
+  // Real-time subscription to the signed-in user's cloud document.
+  useEffect(() => {
+    if (!firebaseEnabled || !user) return
+    syncReady.current = false
+    const ref = doc(db, 'users', user.uid)
+    const unsub = onSnapshot(ref, snap => {
+      if (snap.exists()) {
+        const d = snap.data()
+        const payload = {
+          expenses: Array.isArray(d.expenses) ? d.expenses : [],
+          income: Array.isArray(d.income) ? d.income : [],
+          budgets: d.budgets && typeof d.budgets === 'object' ? d.budgets : {},
+          currency: d.currency || 'PHP',
+        }
+        lastSynced.current = JSON.stringify(payload)
+        setExpenses(payload.expenses)
+        setIncome(payload.income)
+        setBudgets(payload.budgets)
+        setCurrencyCode(payload.currency)
+      } else {
+        // First sign-in on this account: seed the cloud from this device's data.
+        const seed = { expenses, income, budgets, currency: currencyCode }
+        lastSynced.current = JSON.stringify(seed)
+        setDoc(ref, seed).catch(() => {})
+      }
+      syncReady.current = true
+    })
+    return unsub
+  }, [user])
+
+  // Push local changes up to the cloud (skips echoes of remote data).
+  useEffect(() => {
+    if (!firebaseEnabled || !user || !syncReady.current) return
+    const snapshot = JSON.stringify({ expenses, income, budgets, currency: currencyCode })
+    if (snapshot === lastSynced.current) return
+    const t = setTimeout(() => {
+      lastSynced.current = snapshot
+      setDoc(doc(db, 'users', user.uid), JSON.parse(snapshot), { merge: true }).catch(() => {})
+    }, 500)
+    return () => clearTimeout(t)
+  }, [expenses, income, budgets, currencyCode, user])
+
+  async function signIn() {
+    try { await signInWithPopup(auth, googleProvider) }
+    catch (_) { try { await signInWithRedirect(auth, googleProvider) } catch (__) { /* ignore */ } }
+  }
+  function signOutUser() { signOut(auth).catch(() => {}) }
 
   function onChange(e) {
     setForm(f => ({ ...f, [e.target.name]: e.target.value }))
@@ -305,6 +367,16 @@ export default function App() {
           <span className="header-title">Expense Tracker</span>
         </div>
         <div className="header-actions">
+          {firebaseEnabled && (user ? (
+            <div className="user-chip" title={user.email || user.displayName || ''}>
+              {user.photoURL
+                ? <img className="user-avatar" src={user.photoURL} alt="" width="24" height="24" referrerPolicy="no-referrer" />
+                : <span className="user-avatar fallback">{(user.displayName || user.email || '?').slice(0, 1).toUpperCase()}</span>}
+              <button className="signout-btn" onClick={signOutUser}>Sign out</button>
+            </div>
+          ) : (
+            <button className="signin-btn" onClick={signIn}>Sign in to sync</button>
+          ))}
           <button
             className="icon-btn"
             onClick={() => setTheme(t => (t === 'dark' ? 'light' : 'dark'))}
