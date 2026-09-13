@@ -172,6 +172,23 @@ body { margin: 0; }
   margin: 0 0 14px;
 }
 
+/* ===== Recovery banner ===== */
+.recover-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+  border-radius: 12px;
+  padding: 14px 18px;
+}
+.recover-text { display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
+.recover-text strong { color: var(--text); font-size: 14px; }
+.recover-text span { color: var(--muted); }
+.recover-actions { display: flex; gap: 8px; }
+
 /* ===== Month navigation ===== */
 .month-nav {
   display: flex;

@@ -107,6 +107,15 @@ export default function App() {
   const syncReady = useRef(false)
   const didInitialMerge = useRef(false)
 
+  // Auto-backup found on this device (last non-empty snapshot), for one-click recovery.
+  const [backup, setBackup] = useState(() => {
+    try {
+      const b = JSON.parse(localStorage.getItem(LS_BACKUP))
+      const n = (b?.expenses?.length || 0) + (b?.income?.length || 0)
+      return n > 0 ? b : null
+    } catch { return null }
+  })
+
   const currency = CURRENCIES.find(c => c.code === currencyCode) ?? CURRENCIES[0]
 
   useEffect(() => { localStorage.setItem(LS_EXPENSES, JSON.stringify(expenses)) }, [expenses])
@@ -397,6 +406,15 @@ export default function App() {
     downloadBlob(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }), `expense-tracker-backup-${new Date().toISOString().slice(0, 10)}.json`)
   }
 
+  function restoreAutoBackup() {
+    if (!backup) return
+    setExpenses(prev => mergeById(prev, backup.expenses || []))
+    setIncome(prev => mergeById(prev, backup.income || []))
+    setBudgets(prev => ({ ...(backup.budgets || {}), ...prev }))
+    if (backup.currency) setCurrencyCode(c => c || backup.currency)
+    setBackup(null)
+  }
+
   function restoreFromFile(e) {
     const file = e.target.files?.[0]
     e.target.value = ''
@@ -452,6 +470,19 @@ export default function App() {
       </header>
 
       <main className="app-main">
+        {backup && (
+          <div className="recover-banner">
+            <div className="recover-text">
+              <strong>Backup found on this device</strong>
+              <span>Saved {new Date(backup.savedAt).toLocaleString()} · {(backup.expenses?.length || 0)} expenses, {(backup.income?.length || 0)} income</span>
+            </div>
+            <div className="recover-actions">
+              <button className="btn-add" onClick={restoreAutoBackup}>Restore my data</button>
+              <button className="btn-ghost" onClick={() => setBackup(null)}>Dismiss</button>
+            </div>
+          </div>
+        )}
+
         {/* Month navigation */}
         <div className="month-nav">
           <button className="icon-btn" onClick={() => setMonth(m => shiftMonth(m, -1))} aria-label="Previous month">‹</button>
