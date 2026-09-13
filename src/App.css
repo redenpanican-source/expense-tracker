@@ -172,23 +172,6 @@ body { margin: 0; }
   margin: 0 0 14px;
 }
 
-/* ===== Recovery banner ===== */
-.recover-banner {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  flex-wrap: wrap;
-  background: var(--accent-soft);
-  border: 1px solid var(--accent);
-  border-radius: 12px;
-  padding: 14px 18px;
-}
-.recover-text { display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
-.recover-text strong { color: var(--text); font-size: 14px; }
-.recover-text span { color: var(--muted); }
-.recover-actions { display: flex; gap: 8px; }
-
 /* ===== Month navigation ===== */
 .month-nav {
   display: flex;
@@ -442,10 +425,6 @@ input[type='date']::-webkit-calendar-picker-indicator { cursor: pointer; opacity
 .month-chip.on { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); font-weight: 600; }
 
 .export-actions { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
-.restore-label { display: inline-flex; align-items: center; cursor: pointer; }
-.backup-block { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); }
-.backup-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 6px; }
-.backup-hint { font-size: 12px; color: var(--muted); margin: 0 0 12px; }
 .btn-export {
   background: transparent;
   border: 1px solid var(--border);

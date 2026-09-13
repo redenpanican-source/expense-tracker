@@ -39,7 +39,6 @@ const LS_INCOME = 'expense-logger-income'
 const LS_CURRENCY = 'expense-logger-currency'
 const LS_THEME = 'expense-logger-theme'
 const LS_BUDGETS = 'expense-logger-budgets'
-const LS_BACKUP = 'expense-logger-backup' // last known-good snapshot, never overwritten by empty
 
 function fmt(symbol, amount) {
   return `${symbol}${Number(amount).toLocaleString('en', {
@@ -107,15 +106,6 @@ export default function App() {
   const syncReady = useRef(false)
   const didInitialMerge = useRef(false)
 
-  // Auto-backup found on this device (last non-empty snapshot), for one-click recovery.
-  const [backup, setBackup] = useState(() => {
-    try {
-      const b = JSON.parse(localStorage.getItem(LS_BACKUP))
-      const n = (b?.expenses?.length || 0) + (b?.income?.length || 0)
-      return n > 0 ? b : null
-    } catch { return null }
-  })
-
   const currency = CURRENCIES.find(c => c.code === currencyCode) ?? CURRENCIES[0]
 
   useEffect(() => { localStorage.setItem(LS_EXPENSES, JSON.stringify(expenses)) }, [expenses])
@@ -123,16 +113,6 @@ export default function App() {
   useEffect(() => { localStorage.setItem(LS_CURRENCY, currencyCode) }, [currencyCode])
   useEffect(() => { localStorage.setItem(LS_THEME, theme) }, [theme])
   useEffect(() => { localStorage.setItem(LS_BUDGETS, JSON.stringify(budgets)) }, [budgets])
-
-  // Keep a local safety backup of the last NON-EMPTY state, so nothing can wipe it away.
-  useEffect(() => {
-    if (expenses.length === 0 && income.length === 0) return
-    try {
-      localStorage.setItem(LS_BACKUP, JSON.stringify({
-        savedAt: new Date().toISOString(), expenses, income, budgets, currency: currencyCode,
-      }))
-    } catch (_) { /* ignore */ }
-  }, [expenses, income, budgets, currencyCode])
 
   // ---- Cloud sync (Firebase) ----
   useEffect(() => {
@@ -400,41 +380,6 @@ export default function App() {
     URL.revokeObjectURL(a.href)
   }
 
-  // ---- Full backup / restore (a real safety net you control) ----
-  function downloadBackup() {
-    const data = { savedAt: new Date().toISOString(), expenses, income, budgets, currency: currencyCode }
-    downloadBlob(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }), `expense-tracker-backup-${new Date().toISOString().slice(0, 10)}.json`)
-  }
-
-  function restoreAutoBackup() {
-    if (!backup) return
-    setExpenses(prev => mergeById(prev, backup.expenses || []))
-    setIncome(prev => mergeById(prev, backup.income || []))
-    setBudgets(prev => ({ ...(backup.budgets || {}), ...prev }))
-    if (backup.currency) setCurrencyCode(c => c || backup.currency)
-    setBackup(null)
-  }
-
-  function restoreFromFile(e) {
-    const file = e.target.files?.[0]
-    e.target.value = ''
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = () => {
-      try {
-        const d = JSON.parse(reader.result)
-        if (Array.isArray(d.expenses)) setExpenses(prev => mergeById(prev, d.expenses))
-        if (Array.isArray(d.income)) setIncome(prev => mergeById(prev, d.income))
-        if (d.budgets && typeof d.budgets === 'object') setBudgets(prev => ({ ...prev, ...d.budgets }))
-        if (d.currency) setCurrencyCode(d.currency)
-        alert('Backup restored and merged into your data.')
-      } catch (_) {
-        alert('Could not read that file. Please choose a backup .json file exported from this app.')
-      }
-    }
-    reader.readAsText(file)
-  }
-
   const isIncome = entryType === 'income'
 
   return (
@@ -470,19 +415,6 @@ export default function App() {
       </header>
 
       <main className="app-main">
-        {backup && (
-          <div className="recover-banner">
-            <div className="recover-text">
-              <strong>Backup found on this device</strong>
-              <span>Saved {new Date(backup.savedAt).toLocaleString()} · {(backup.expenses?.length || 0)} expenses, {(backup.income?.length || 0)} income</span>
-            </div>
-            <div className="recover-actions">
-              <button className="btn-add" onClick={restoreAutoBackup}>Restore my data</button>
-              <button className="btn-ghost" onClick={() => setBackup(null)}>Dismiss</button>
-            </div>
-          </div>
-        )}
-
         {/* Month navigation */}
         <div className="month-nav">
           <button className="icon-btn" onClick={() => setMonth(m => shiftMonth(m, -1))} aria-label="Previous month">‹</button>
@@ -697,17 +629,6 @@ export default function App() {
               </>
             )
           }
-          <div className="backup-block">
-            <div className="backup-title">Backup &amp; restore</div>
-            <p className="backup-hint">Download a full backup file you keep, and restore it any time. This is your own copy, independent of the cloud.</p>
-            <div className="export-actions">
-              <label className="btn-export restore-label">
-                Restore from file
-                <input type="file" accept="application/json,.json" onChange={restoreFromFile} hidden />
-              </label>
-              <button className="btn-export primary" onClick={downloadBackup}>Download backup (.json)</button>
-            </div>
-          </div>
         </section>
       </main>
     </div>
