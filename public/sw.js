@@ -1,7 +1,7 @@
 // Service worker for Expense Tracker.
 // Network-first for everything: always shows the latest version when online,
 // and falls back to the cache only when offline. (v2)
-const CACHE = 'expense-tracker-v4';
+const CACHE = 'expense-tracker-v5';
 const BASE = self.registration.scope; // e.g. https://host/expense-tracker/
 
 self.addEventListener('install', () => {

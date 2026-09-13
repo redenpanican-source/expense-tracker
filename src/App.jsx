@@ -127,7 +127,10 @@ export default function App() {
     syncReady.current = false
     didInitialMerge.current = false
     const ref = doc(db, 'users', user.uid)
-    const unsub = onSnapshot(ref, snap => {
+    const unsub = onSnapshot(ref, { includeMetadataChanges: true }, snap => {
+      // Never act on a cached snapshot for the FIRST sync — wait for authoritative
+      // server data, so a stale/empty local cache can't overwrite the real cloud data.
+      if (!didInitialMerge.current && snap.metadata.fromCache) return
       const d = snap.exists() ? snap.data() : {}
       const cloud = {
         expenses: Array.isArray(d.expenses) ? d.expenses : [],

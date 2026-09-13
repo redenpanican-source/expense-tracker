@@ -3,11 +3,7 @@
 // These values are NOT secret — they ship to the browser; security is enforced by Firestore rules.
 import { initializeApp } from 'firebase/app'
 import { getAuth, GoogleAuthProvider } from 'firebase/auth'
-import {
-  initializeFirestore,
-  persistentLocalCache,
-  persistentMultipleTabManager,
-} from 'firebase/firestore'
+import { getFirestore } from 'firebase/firestore'
 
 const firebaseConfig = {
   apiKey: 'AIzaSyCYm0Gr6uqx0hd-OTUkDxvlpvk_-YCZS8M',
@@ -26,9 +22,9 @@ if (firebaseEnabled) {
   app = initializeApp(firebaseConfig)
   auth = getAuth(app)
   googleProvider = new GoogleAuthProvider()
-  db = initializeFirestore(app, {
-    localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
-  })
+  // Default (in-memory) cache: the first snapshot always reflects real server data,
+  // so a stale offline cache can never be written back over good cloud data.
+  db = getFirestore(app)
 }
 
 export { auth, db, googleProvider }
