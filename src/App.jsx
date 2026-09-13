@@ -73,6 +73,14 @@ function loadJSON(key, fallback) {
   catch { return fallback }
 }
 
+// Union two lists of {id,...} — keeps every unique entry so a sync never drops data.
+function mergeById(a = [], b = []) {
+  const map = new Map()
+  for (const x of b) if (x && x.id) map.set(x.id, x)
+  for (const x of a) if (x && x.id) map.set(x.id, x)
+  return [...map.values()].sort((p, q) => String(q.date || '').localeCompare(String(p.date || '')))
+}
+
 export default function App() {
   const [expenses, setExpenses] = useState(() => loadJSON(LS_EXPENSES, []))
   const [income, setIncome] = useState(() => loadJSON(LS_INCOME, []))
@@ -96,6 +104,7 @@ export default function App() {
   const [user, setUser] = useState(null)
   const lastSynced = useRef(null)
   const syncReady = useRef(false)
+  const didInitialMerge = useRef(false)
 
   const currency = CURRENCIES.find(c => c.code === currencyCode) ?? CURRENCIES[0]
 
@@ -116,26 +125,40 @@ export default function App() {
   useEffect(() => {
     if (!firebaseEnabled || !user) return
     syncReady.current = false
+    didInitialMerge.current = false
     const ref = doc(db, 'users', user.uid)
     const unsub = onSnapshot(ref, snap => {
-      if (snap.exists()) {
-        const d = snap.data()
-        const payload = {
-          expenses: Array.isArray(d.expenses) ? d.expenses : [],
-          income: Array.isArray(d.income) ? d.income : [],
-          budgets: d.budgets && typeof d.budgets === 'object' ? d.budgets : {},
-          currency: d.currency || 'PHP',
+      const d = snap.exists() ? snap.data() : {}
+      const cloud = {
+        expenses: Array.isArray(d.expenses) ? d.expenses : [],
+        income: Array.isArray(d.income) ? d.income : [],
+        budgets: d.budgets && typeof d.budgets === 'object' ? d.budgets : {},
+        currency: d.currency || null,
+      }
+      if (!didInitialMerge.current) {
+        // First sync of this session: MERGE this device's data with the cloud so
+        // neither side is ever wiped, then write the union back up.
+        didInitialMerge.current = true
+        const merged = {
+          expenses: mergeById(expenses, cloud.expenses),
+          income: mergeById(income, cloud.income),
+          budgets: { ...cloud.budgets, ...budgets },
+          currency: cloud.currency || currencyCode,
         }
+        lastSynced.current = JSON.stringify(merged)
+        setExpenses(merged.expenses)
+        setIncome(merged.income)
+        setBudgets(merged.budgets)
+        setCurrencyCode(merged.currency)
+        setDoc(ref, merged).catch(() => {})
+      } else {
+        // Afterwards the cloud is the source of truth (so edits/deletes propagate).
+        const payload = { ...cloud, currency: cloud.currency || currencyCode }
         lastSynced.current = JSON.stringify(payload)
         setExpenses(payload.expenses)
         setIncome(payload.income)
         setBudgets(payload.budgets)
         setCurrencyCode(payload.currency)
-      } else {
-        // First sign-in on this account: seed the cloud from this device's data.
-        const seed = { expenses, income, budgets, currency: currencyCode }
-        lastSynced.current = JSON.stringify(seed)
-        setDoc(ref, seed).catch(() => {})
       }
       syncReady.current = true
     })
